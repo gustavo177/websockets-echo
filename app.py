@@ -4,12 +4,20 @@ import signal
 
 import websockets
 
+# Lista de conexiones
+connections = set()
 
 async def echo(websocket):
-    async for message in websocket:
-
-        message = (f"El servidor responde: {message}")
-        await websocket.send(message)
+    # Agregar la nueva conexión a la lista
+    connections.add(websocket)
+    try:
+        # Recibir y enviar mensajes a los clientes conectados
+        async for message in websocket:
+            for connection in connections:
+                await connection.send(message)
+    finally:
+        # Eliminar la conexión de la lista
+        connections.remove(websocket)
 
 
 async def health_check(path, request_headers):
