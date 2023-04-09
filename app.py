@@ -1,13 +1,16 @@
 import asyncio
+import http
+import signal
+
 import websockets
 
 # Lista de conexiones
 connections = set()
 
-async def handler(websocket, path):
+async def echo(websocket):
     # Agregar la nueva conexión a la lista
     connections.add(websocket)
-    print("****************")
+    # print("****************")
     # Conecciones actuales
     # print(connections)
 
@@ -39,28 +42,45 @@ async def handler(websocket, path):
                     await asyncio.wait_for(connection.send(message), timeout=10)
         finally:
             # Eliminar la conexión de la lista
-            print("inicio 1")
+            # print("inicio 1")
             connections.remove(websocket)
             await websocket.close()
-            print("fin 1")
+            # print("fin 1")
 
 
             # # se resta -1 para darle espacio al siguiente cliente
             # numero_usuario_conectados=numero_usuario_conectados
     else:
         
-        print("******************************")
-        print(numero_usuario_conectados)
-        print("*******************************")
+        # print("******************************")
+        # print(numero_usuario_conectados)
+        # print("*******************************")
 
-        print("Se ha alcanzado el límite máximo de clientes")
+        # print("Se ha alcanzado el límite máximo de clientes")
         # Eliminar la conexión de la lista
         connections.remove(websocket)
         await websocket.close()
-        
 
-# Iniciar el servidor websockets
-start_server = websockets.serve(handler, "localhost", 8001)
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+async def health_check(path, request_headers):
+    if path == "/healthz":
+        return http.HTTPStatus.OK, [], b"OK\n"
+
+
+async def main():
+    # Set the stop condition when receiving SIGTERM.
+    loop = asyncio.get_running_loop()
+    stop = loop.create_future()
+    loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
+
+    async with websockets.serve(
+        echo,
+        host="",
+        port=8080,
+        process_request=health_check,
+    ):
+        await stop
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
